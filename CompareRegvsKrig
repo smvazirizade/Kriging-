@@ -1,0 +1,63 @@
+#This script compares Kriging mehtod and regression method for any function based on just 1 variable for the sake of brevity
+rm(list=ls(all=TRUE))
+wants <- c("ggplot2","sp","gstat","dplyr","plotly","reshape2")
+has   <- wants %in% rownames(installed.packages())
+if(any(!has)) install.packages(wants[!has])
+for (pkg in wants) {library(pkg, character.only = TRUE)}
+
+##
+  set.seed(0)
+## funciton we want to predict
+  FUNCTION <- function(x,y) {
+    sin(x)*exp(-x)+x^.4/5
+  }
+  
+  
+  
+#x for drawing, the points in the space we want to predict
+  x1=seq(0,5,.001)
+  x2=0
+  yreal=FUNCTION(x1)
+#Sample points or deterministic points, the points we know the value for, we can chose them randomly or uniformly
+  #xDet1=seq(0,5,.1)
+  xDet1=c(0,runif(20-2,0,5),5)
+  xDet2=0
+  y=FUNCTION(xDet1)
+  DF1 <- data.frame(XDet1=xDet1,XDet2=xDet2,Y=y)
+  DF1SP <- DF1 
+  coordinates(DF1SP) <- ~ XDet1 + XDet2
+  DF1 <- data.frame(XDet1=xDet1,Y=y)
+#Regression MOdel
+  model <- lm(y ~ poly(xDet1,3))
+#Kriging
+lzn.vgm <- variogram(y~1, DF1SP) # calculates sample variogram values 
+lzn.fit <- fit.variogram(lzn.vgm, model=vgm(1, "Sph", 0.5, 1)) # fit model
+  #Ploting the variogram
+    #plot(lzn.vgm,lzn.fit)
+  #The predicted value of sample points by kriging should be exactly the same as y (calculated value)
+    krigedTest <- krige(y ~ 1, DF1SP, DF1SP, model=lzn.fit)
+    round(as.data.frame(krigedTest)$var1.pred-y,5)
+  #Predicting values for other points in the space by kriing  
+    Grid <- data.frame(x1=x1,x2=x2)
+    coordinates(Grid) <- ~ x1 + x2 # step 3 above
+    #kriged <- krige(simple/ordinary/unviersal kiring (the order of the polynomial), the determinsitic values in DFSP format, location of the required points, variogram model)
+    kriged <- krige(y ~ 1, DF1SP, Grid, model=lzn.fit)
+    Results1 <- as.data.frame(kriged)
+    Results1$Type <- "predicted"
+    Results1$upper <- Results1$var1.pred+Results1$var1.var^.5
+    Results1$lower <- Results1$var1.pred-Results1$var1.var^.5
+#plotting
+    ggplot()+
+      geom_line(aes(x=x1,y=yreal,color="black"))+
+      geom_line(aes(x=x1,y=var1.pred,color="blue"),Results1)+
+      geom_ribbon(aes(x=x1,ymin=upper,ymax=lower),Results1,alpha=0.1, fill="blue")+    
+      geom_smooth(aes(xDet1,y,color="red"),method='lm',formula=y~poly(x,4),fill="red",alpha=.1)+
+      #scale_color_manual(name="Method", 
+       #                 labels = c("a", "b","c"), 
+        #               values = c("a"="black","b"="blue","c"="red"))     
+      scale_colour_manual(name="",labels = c("Real", "Kriging","Regression"), values=c("black","blue","red"))+
+      geom_point(aes(xDet1,y),shape=16,size=2,color='black')
+
+      
+    
+  
