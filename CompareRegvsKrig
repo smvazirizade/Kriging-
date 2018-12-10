@@ -52,9 +52,7 @@ lzn.fit <- fit.variogram(lzn.vgm, model=vgm(1, "Sph", 0.5, 1)) # fit model
       geom_line(aes(x=x1,y=var1.pred,color="blue"),Results1)+
       geom_ribbon(aes(x=x1,ymin=upper,ymax=lower),Results1,alpha=0.1, fill="blue")+    
       geom_smooth(aes(xDet1,y,color="red"),method='lm',formula=y~poly(x,4),fill="red",alpha=.1)+
-      #scale_color_manual(name="Method", 
-       #                 labels = c("a", "b","c"), 
-        #               values = c("a"="black","b"="blue","c"="red"))     
+      #scale_color_manual(name="Method",   
       scale_colour_manual(name="",labels = c("Real", "Kriging","Regression"), values=c("black","blue","red"))+
       geom_point(aes(xDet1,y),shape=16,size=2,color='black')
 
