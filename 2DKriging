@@ -20,7 +20,7 @@ for (pkg in wants) {library(pkg, character.only = TRUE)}
   # Making Grid for Interpolation
   MinX <- min(meuseDF$x);  MaxX <- max(meuseDF$x);
   MinY <- min(meuseDF$y);  MaxY <- max(meuseDF$y)  
-  Xrange <- seq(MinX,MaxX,1);  Yrange <- seq(MinY,MaxY,1)
+  Xrange <- seq(MinX,MaxX,5);  Yrange <- seq(MinY,MaxY,5)
   # mesh grid
   Griding <- meshgrid(Xrange, Yrange)
   # mesh grid in a sequence
