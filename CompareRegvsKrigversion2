@@ -1,0 +1,101 @@
+rm(list=ls(all=TRUE))
+wants <- c("ggplot2","sp","gstat","dplyr","plotly","reshape2")
+has   <- wants %in% rownames(installed.packages())
+if(any(!has)) install.packages(wants[!has])
+for (pkg in wants) {library(pkg, character.only = TRUE)}
+
+##
+set.seed(0)
+## funciton
+FUNCTION <- function(x,y) {
+  #sin(x)*cos(x)*exp(-x)+x^.4/6
+  sin(x)*exp(-x)+x^.4/5
+}
+
+
+
+#x for drawing
+x1=seq(0,5,.001)
+x2=0
+yreal=FUNCTION(x1)
+#Sample points or deterministic points
+#xDet1=seq(0,5,.1)
+xDet1=c(0,runif(20-2,0,5),5)
+xDet2=0
+y=FUNCTION(xDet1)
+DF1 <- data.frame(XDet1=xDet1,XDet2=xDet2,Y=y)
+DF1SP <- DF1 
+coordinates(DF1SP) <- ~ XDet1 + XDet2
+DF1 <- data.frame(XDet1=xDet1,Y=y)
+#Regression MOdel
+model <- lm(y ~ poly(xDet1,3))
+#Kriging
+lzn.vgm <- variogram(y~1, DF1SP) # calculates sample variogram values 
+lzn.fit <- fit.variogram(lzn.vgm, model=vgm(1, "Sph", 0.5, 1)) # fit model
+#Ploting the variogram
+#plot(lzn.vgm,lzn.fit)
+#The predicted value of sample points by kriging should be exactly the same as y (calculated value)
+krigedTest <- krige(y ~ 1, DF1SP, DF1SP, model=lzn.fit)
+round(as.data.frame(krigedTest)$var1.pred-y,5)
+#Predicting values for other points in the space by kriing  
+Grid <- data.frame(x1=x1,x2=x2)
+coordinates(Grid) <- ~ x1 + x2 # step 3 above
+#kriged <- krige(simple/ordinary/unviersal kiring (the order of the polynomial), the determinsitic values in DFSP format, location of the required points, variogram model)
+kriged <- krige(y ~ 1, DF1SP, Grid, model=lzn.fit)
+Results1 <- as.data.frame(kriged)
+Results1$Type <- "predicted"
+Results1$upper <- Results1$var1.pred+Results1$var1.var^.5
+Results1$lower <- Results1$var1.pred-Results1$var1.var^.5
+#plotting
+##### JCO Code starts here
+# Create a single data frame for plotting
+gr.df <- data.frame(Method = c(rep(x = "Actual", times = length(x1)), 
+                               rep(x = "Kriging", times = length(x1)),
+                               rep(x = "Regression", times = length(xDet1))),
+                    xvalue = c(x1, x1, xDet1),
+                    yvalue = c(yreal, Results1$var1.pred, y),
+                    upper = c(rep(x = NA, times = length(x1)), 
+                              Results1$upper,
+                              rep(x = NA, times = length(xDet1))),
+                    lower = c(rep(x = NA, times = length(x1)), 
+                              Results1$lower,
+                              rep(x = NA, times = length(xDet1)))
+)
+
+# Create plot
+line.plot <- ggplot(data = gr.df, mapping = aes(x = xvalue, y = yvalue)) +
+  # Plot the three lines, one for each value in Method column, coloring by Method
+  geom_line(mapping = aes(group = Method, color = Method, linetype = Method)) +
+  # Set the colors for those lines
+  scale_color_manual(name="Method",
+                     values = c("black","blue","red")) +
+  # Set the line type (especially for Regression, which we'll leave blank)
+  scale_linetype_manual(values = c("solid", "solid", "blank")) +
+  # For the actual legend, need to override the linetype aesthetic
+  guides(linetype = guide_legend(override.aes = list(linetype = "solid"))) +
+  # Add the Actual points, creating data frame "on the fly"
+  geom_point(data = data.frame(xvalue = xDet1, yvalue = y), 
+             mapping = aes(x = xvalue, y = yvalue), 
+             size = 2, 
+             shape = 16, 
+             color = "black") +
+  # Add the Kriging ribbon, using just Kriging values
+  geom_ribbon(data = gr.df[gr.df$Method == "Kriging", ],
+              mapping = aes(x = xvalue, ymin = upper, ymax = lower),
+              alpha = 0.1,
+              fill = "blue") +
+  # Add the polynomial regression line, using only regression values
+  geom_smooth(data = gr.df[gr.df$Method == "Regression", ],
+              mapping = aes(x = xvalue, y = yvalue),
+              method = "lm",
+              formula = y~poly(x, 4),
+              color = "red",
+              fill = "red", 
+              alpha = 0.1,
+              size = 0.5) + # So size matches other lines
+  labs(title = "Different Methods", y = "Value", x = "Var1") +
+  theme(legend.position = c(0.85, 0.15)) +# legend in bottom right
+  theme(panel.background = element_rect(fill  ="lightblue"))+
+  theme(plot.background = element_rect(fill  ="lightgreen"))
+# print plot
+print(line.plot)
